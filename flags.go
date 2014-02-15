@@ -8,6 +8,7 @@ import (
 
 // saving options
 var dir string
+var dryrun bool
 
 // general options
 var verbosity int
@@ -19,6 +20,7 @@ func init() {
 	flag.IntVar(&verbosity, "v", 4, "verbosity level 1-5")
 	flag.StringVar(&logFile, "l", "", "log file name")
 	flag.IntVar(&logVerbosity, "lv", 4, "verbosity of logfile output")
+	flag.BoolVar(&dryrun, "n", false, "do everything exept touching the filesystem.")
 	flag.Parse()
 
 	var err error

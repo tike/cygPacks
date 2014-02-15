@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Repo struct {
@@ -14,16 +14,47 @@ type Repo struct {
 	packs []*Package
 }
 
-func (r *Repo) ParseSetupIni(raw []byte) int {
-	packages := bytes.Split(raw, []byte("\n@ "))
-
-	for _, pack := range packages[1:] {
-		this := NewPackage()
-		this.Parse(pack)
-		r.packs = append(r.packs, this)
+func trimm(in []byte) string {
+	var openQuote bool
+	for i := 0; i < len(in); i++ {
+		switch in[i] {
+		case 34:
+			if openQuote {
+				openQuote = false
+			} else {
+				openQuote = true
+			}
+		case 10:
+			if openQuote {
+				in[i] = 32
+			}
+		}
 	}
 
-	return len(r.packs)
+	if in[len(in)-1] == 10 {
+		in = in[:len(in)-1]
+	}
+
+	return string(in)
+}
+
+func (r *Repo) ParseSetupIni(raw []byte) (num int, err error) {
+	sRaw := trimm(raw)
+	packages := strings.Split(sRaw, "\n\n@ ")
+
+	for i, pack := range packages[1:] {
+		logger.Printf(4, "============================== %5d / %5d ================================", i, len(packages))
+		this := NewPackage()
+		if err = this.Parse(pack); err != nil {
+			logger.Println(1, "Parsing: %s: %s", this.Name, err)
+			return i, err
+		}
+		logger.Printf(4, "%#v", this)
+		r.packs = append(r.packs, this)
+
+	}
+
+	return len(r.packs), err
 }
 
 func (r *Repo) Belongs(path string, info os.FileInfo, inErr error) (err error) {
@@ -43,15 +74,20 @@ func (r *Repo) Belongs(path string, info os.FileInfo, inErr error) (err error) {
 	for _, pack := range r.packs {
 		if pack.ThatsMyFile(filepath.ToSlash(path), info) {
 			belongs = true
-			logger.Printf(3, "will keep:   %s", path)
+			logger.Printf(4, "will keep:   %s", path)
 			break
 		}
 	}
 
 	if !belongs {
-		logger.Printf(3, "will delete: %s", path)
+		logger.Printf(2, "deleting: %s", path)
+		if !dryrun {
+			if err = os.Remove(path); err != nil {
+				logger.Printf(1, "Couldn't delete: %s because of %s", path, err)
+			}
+		}
 	}
-	return nil
+	return
 }
 
 func (r *Repo) CleanCache() error {

@@ -45,12 +45,17 @@ func main() {
 		if rawBytes, err = ReadSetupIni(ini); err != nil {
 			continue
 		}
-		num := repo.ParseSetupIni(rawBytes)
+
+		num, err := repo.ParseSetupIni(rawBytes)
+		if err != nil {
+			logger.Printf(3, "Error parsing package %d: %s", num, err)
+		}
 		logger.Printf(3, "Found %d packages.", num)
 
 		if err := repo.CleanCache(); err != nil {
 			logger.Printf(1, "Cleaning failed: %s", err)
 		}
+
 	}
 
 }
